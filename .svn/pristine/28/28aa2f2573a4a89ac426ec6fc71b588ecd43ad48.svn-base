@@ -1,0 +1,75 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.0">
+  <POU Name="MAIN" Id="{5cef631f-7df0-4fb4-b272-baae9902aac5}" SpecialFunc="None">
+    <Declaration><![CDATA[PROGRAM MAIN
+VAR
+	fbMqttClient: FB_IotMqttClient;
+    fbMessageQueue: FB_IotMqttMessageQueue;
+    fbMessage: FB_IotMqttMessage;
+	Subscribed:BOOL;
+	TopicToSubscribe   : STRING(255) := 'Temperatures'; // Mqtt topic on which we will subscribe
+	ReceivingTopic:STRING(255);
+	ReceivingData:STRING(255);
+	TopicToSubscribeJSon   : STRING(255) := 'Temperatures_JSON'; // Mqtt topic on which we will subscribe for JSON messages.
+	messageJsonString:STRING(255);
+	TemperatureStructure:TemperatureStructure;
+	fbJsonDataType : FB_JsonReadWriteDataType;	
+END_VAR
+
+    
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[IF _TaskInfo[GETCURTASKINDEXEX()].FirstCycle THEN    
+    fbMqttClient.sHostName      := '192.168.178.19';
+    fbMqttClient.nHostPort      := 1883;
+    fbMqttClient.sTopicPrefix   := '';     
+	fbMqttClient.ipMessageQueue := fbMessageQueue;
+	fbMqttClient.sClientId 		:= 'Subscribing PLC';
+END_IF
+
+fbMqttClient.Execute(bConnect :=true);
+
+IF fbMqttClient.bConnected THEN
+    IF NOT Subscribed THEN
+        Subscribed := fbMqttClient.Subscribe(sTopic:=TopicToSubscribe,
+			eQoS:=TcIotMqttQos.AtMostOnceDelivery);
+			
+        Subscribed := fbMqttClient.Subscribe(sTopic:=TopicToSubscribeJSon,
+			eQoS:=TcIotMqttQos.AtMostOnceDelivery);
+    END_IF
+END_IF
+
+IF fbMessageQueue.nQueuedMessages > 0 THEN
+    IF fbMessageQueue.Dequeue(fbMessage:=fbMessage) THEN
+        fbMessage.GetTopic(pTopic:=ADR(ReceivingTopic), nTopicSize:=SIZEOF(ReceivingTopic) );
+		IF ReceivingTopic = TopicToSubscribeJSon THEN
+			fbMessage.GetPayload(pPayload:=ADR(messageJsonString), nPayloadSize:=SIZEOF(messageJsonString), bSetNullTermination:=FALSE);	
+			fbJsonDataType.SetSymbolFromJson(messageJsonString, 'TemperatureStructure', SIZEOF(TemperatureStructure), ADR(TemperatureStructure));
+		ELSE
+       		fbMessage.GetPayload(pPayload:=ADR(ReceivingData), nPayloadSize:=SIZEOF(ReceivingData), bSetNullTermination:=FALSE);			
+		END_IF
+    END_IF
+END_IF]]></ST>
+    </Implementation>
+    <LineIds Name="MAIN">
+      <LineId Id="9" Count="3" />
+      <LineId Id="26" Count="0" />
+      <LineId Id="38" Count="0" />
+      <LineId Id="2" Count="0" />
+      <LineId Id="36" Count="1" />
+      <LineId Id="16" Count="3" />
+      <LineId Id="23" Count="0" />
+      <LineId Id="52" Count="2" />
+      <LineId Id="15" Count="0" />
+      <LineId Id="24" Count="0" />
+      <LineId Id="28" Count="3" />
+      <LineId Id="59" Count="0" />
+      <LineId Id="61" Count="0" />
+      <LineId Id="68" Count="0" />
+      <LineId Id="65" Count="0" />
+      <LineId Id="63" Count="1" />
+      <LineId Id="33" Count="0" />
+      <LineId Id="25" Count="0" />
+    </LineIds>
+  </POU>
+</TcPlcObject>
